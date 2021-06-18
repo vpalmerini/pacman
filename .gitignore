@@ -1,0 +1,5 @@
+# binaries
+*.pyc
+
+# recorded games
+recorded-game*
