@@ -6,3 +6,6 @@ recorded-game*
 
 # genetic algorithms output
 gen-*
+
+# jupyter stuff
+.ipynb_checkpoints

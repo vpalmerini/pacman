@@ -1,21 +1,37 @@
 # Pac Man
 
-## Rodando Localmente
-
-### Dependências
+### Configurando o Ambiente
 
 Tenha as seguintes dependências instaladas:
 
 - `python 2`
 - `tkinter`
+- `jupyter`
+- `pipenv`
+
+Na pasta do projeto, inicie o ambiente virtual com:
+
+```sh
+pipenv install
+
+pipenv shell
+```
+
+Inicie o notebook com:
+
+```sh
+jupyter notebook
+```
 
 ### Comandos
 
 Existem vários layouts/mapas possíveis. Para escolher um, basta passar a flag `--layout [nome-do-layout]` para o comando:
 
 ```python
-python pacman.py
+! python pacman.py
 ```
+
+> No ambiente Jupyter
 
 Para o Projeto 3, deve-se considerar os seguintes layouts:
 
@@ -23,6 +39,12 @@ Para o Projeto 3, deve-se considerar os seguintes layouts:
 - `mediumClassic` (default)
 - `originalClassic`
 
+
+Para rodar o algoritmo de programação genética, basta executar o comando:
+
+```sh
+! python p3.py
+```
 
 ### Projeto
 
