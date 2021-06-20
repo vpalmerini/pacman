@@ -6,10 +6,15 @@ from pacman import readCommand, runGames
 from layout import getLayout
 
 class Individual:
-  def __init__(self, score = float("inf"), win = False, moveHistory = []):
+  def __init__(self, score = float("inf"), win = False, moveHistory = [], food_count = 55, capsules_count = 2):
     self.score = score
     self.win = win
     self.moveHistory = moveHistory
+    self.food_count = food_count
+    self.capsules_count = capsules_count
+
+  def fitness(self):
+    return self.score + 100 * int(self.win) - (10 * self.capsules_count + self.food_count)
 
 
 def get_half_moves(individual, half = 'first'):
@@ -56,8 +61,8 @@ def generate_children(individuals, gen, layout):
 
 
 def main():
-  NUMBER_OF_GENERATIONS = 20
-  NUMBER_OF_INDIVIDUALS = 4
+  NUMBER_OF_GENERATIONS = 100
+  NUMBER_OF_INDIVIDUALS = 6
   LAYOUT = 'smallClassic'
 
   gen_performance = {}
@@ -74,16 +79,19 @@ def main():
         scores = [game.state.getScore() for game in games]
         wins = [game.state.isWin() for game in games]
         move_history = games[0].moveHistory
+        food_count = [game.state.getNumFood() for game in games]
+        capsules_count = [len(game.state.getCapsules()) for game in games]
 
-        individuals.append(Individual(scores[0], wins[0], move_history))
+        individuals.append(Individual(scores[0], wins[0], move_history, food_count[0], capsules_count[0]))
 
     # generation average
     gen_performance[gen] = []
     gen_performance[gen].append(sum(ind.score for ind in individuals) / NUMBER_OF_INDIVIDUALS)
+    gen_performance[gen].append(sum([ind.fitness() for ind in individuals]))
     gen_performance[gen].append(Counter([ind.win for ind in individuals]))
 
     # parents - best 6 from current generation
-    best_individuals = list(reversed(sorted(individuals, key=lambda x: x.score)))[:10]
+    best_individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness())))[:10]
 
     # reproduction
     children = generate_children(best_individuals, gen, LAYOUT)
@@ -96,11 +104,15 @@ def main():
 
       scores = [game.state.getScore() for game in games]
       wins = [game.state.isWin() for game in games]
+      food_count = [game.state.getNumFood() for game in games]
+      capsules_count = [len(game.state.getCapsules()) for game in games]
 
       child.score = scores[0]
       child.win = wins[0]
+      child.food_count = food_count[0]
+      child.capsules_count = capsules_count[0]
     
-    individuals = list(reversed(sorted(individuals + children, key=lambda x: x.score)))[:NUMBER_OF_INDIVIDUALS]
+    individuals = list(reversed(sorted(individuals + children, key=lambda x: x.fitness())))[:NUMBER_OF_INDIVIDUALS]
 
   print gen_performance
 
