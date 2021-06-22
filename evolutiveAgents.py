@@ -10,10 +10,10 @@ class EvolutiveAgent(Agent):
   
   def getAction(self, state):
     "Get action from moveHistory or moves randomly"
-    move = random.choice(state.getLegalPacmanActions())
+    legalActions = state.getLegalPacmanActions()
+    move = random.choice(legalActions)
 
     if len(self.moveHistory['actions']) > 0:
-      nextMove = self.moveHistory['actions'].pop(0)[-1]
-      if nextMove in state.getLegalPacmanActions():
-        move = nextMove
+      if self.moveHistory['actions'][0][-1] in legalActions:
+        move = self.moveHistory['actions'].pop(0)[-1]
     return move

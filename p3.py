@@ -14,30 +14,56 @@ class Individual:
     self.capsules_count = capsules_count
 
   def fitness(self):
-    return self.score + 100 * int(self.win) - (10 * self.capsules_count + self.food_count)
+    return self.score + 10000 * int(self.win) - (1000 * self.capsules_count + 1000 * self.food_count)
 
 
-def get_half_moves(individual, half = 'first'):
+# asexual reproduction
+def duplication(individuals, gen, layout, crop = 3, factor = 2):
+  new_individuals = []
+  for (index, ind) in enumerate(factor * individuals):
+    moves = ind.moveHistory
+    if type(moves) is str:
+      f = open(moves)
+      moves = cPickle.load(f)['actions']
+      f.close()
+    
+    moves = moves[:crop]
+
+    _dir = 'gen-{gen}'.format(gen=gen)
+    if not os.path.exists(_dir):
+      os.mkdir(_dir)
+    
+    fname = '{dir}/child-{child}'.format(dir=_dir, child=index)
+    f = file(fname, 'w')
+    
+    components = {'layout': getLayout(layout), 'actions': moves}
+    cPickle.dump(components, f)
+    f.close()
+
+    new_individuals.append(Individual(moveHistory=fname))
+
+  return new_individuals
+
+
+
+def get_half_moves(individual):
   moves = individual.moveHistory
   if type(individual.moveHistory) is str:
     f = open(individual.moveHistory)
     moves = cPickle.load(f)['actions']
     f.close()
     
-  moves_length = len(moves)
-  if half == 'second':
-    return moves[moves_length:] 
-  return moves[:moves_length]
+  return moves[:(len(moves) // 2)] 
 
-
-def generate_children(individuals, gen, layout):
+# sexual reproduction
+def crossover(individuals, gen, layout):
   i = 0
   j = len(individuals) - 1
   children = []
 
   while i < j:
-    p1_first_half_moves = get_half_moves(individuals[i], 'first')
-    p2_second_half_moves = get_half_moves(individuals[j], 'second')
+    p1_first_half_moves = get_half_moves(individuals[i])
+    p2_second_half_moves = get_half_moves(individuals[j])
 
     children_move_history = p1_first_half_moves + p2_second_half_moves
 
@@ -60,14 +86,48 @@ def generate_children(individuals, gen, layout):
   return children
 
 
+def mutation(individual, crop = 3):
+  if type(individual.moveHistory) is str:
+    f = open(individual.moveHistory, 'rb')
+    components = cPickle.load(f)
+    f.close()
+
+    components['actions'] = components['actions'][:crop]
+    f = open(individual.moveHistory, 'wb')
+    cPickle.dump(components, f)
+    f.close()
+  else:
+    individual.moveHistory = individual.moveHistory[:crop]
+
+
+def evaluateIndividual(games):
+  scores = [game.state.getScore() for game in games]
+  wins = [game.state.isWin() for game in games]
+
+  best_score = max(score)
+  best_index = scores.index(best_score)
+
+
+  move_history = games[best_index].moveHistory
+  food_count = [game.state.getNumFood() for game in games]
+  capsules_count = [len(game.state.getCapsules()) for game in games]
+
+  return Individual(scores[best_index], wins[best_index], move_history, food_count[best_index], capsules_count[best_index])
+
+
 def main():
-  NUMBER_OF_GENERATIONS = 100
-  NUMBER_OF_INDIVIDUALS = 6
+  NUMBER_OF_GENERATIONS = 5
+  NUMBER_OF_INDIVIDUALS = 4
   LAYOUT = 'smallClassic'
+  REPRODUCTION = 'asexual'
+  FACTOR = 2
+  crop = 2
+  INDIVIDUALS_PERSIST = False
+  MUTATION = False
 
   gen_performance = {}
   individuals = []
-  default_args = ['-p', 'RandomAgent', '-q', '--layout', LAYOUT]
+  default_args = ['-p', 'RandomAgent', '--layout', LAYOUT, '--numGames', 3]
 
   for gen in range(NUMBER_OF_GENERATIONS):
     print 'Generation {gen}'.format(gen=gen)
@@ -82,7 +142,7 @@ def main():
         food_count = [game.state.getNumFood() for game in games]
         capsules_count = [len(game.state.getCapsules()) for game in games]
 
-        individuals.append(Individual(scores[0], wins[0], move_history, food_count[0], capsules_count[0]))
+        individuals.append(evaluateIndividual(games))
 
     # generation average
     gen_performance[gen] = []
@@ -90,15 +150,21 @@ def main():
     gen_performance[gen].append(sum([ind.fitness() for ind in individuals]))
     gen_performance[gen].append(Counter([ind.win for ind in individuals]))
 
-    # parents - best 6 from current generation
-    best_individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness())))[:10]
+    # parents - best from current generation
+    best_individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness())))[:(NUMBER_OF_INDIVIDUALS // FACTOR)]
+
+    crop += 1
 
     # reproduction
-    children = generate_children(best_individuals, gen, LAYOUT)
+    children = []
+    if REPRODUCTION == 'sexual':
+      children = crossover(best_individuals, gen, LAYOUT)
+    else:
+      children = duplication(best_individuals, gen, LAYOUT, crop, FACTOR)
 
-
+    # evaluate children
     for child in children:
-      children_args = ['-p', 'EvolutiveAgent', '--agentArgs', 'moveHistory={moveHistory}'.format(moveHistory=child.moveHistory), '-q', '--layout', LAYOUT]
+      children_args = ['-p', 'EvolutiveAgent', '--agentArgs', 'moveHistory={moveHistory}'.format(moveHistory=child.moveHistory), '--layout', LAYOUT]
       args = readCommand(children_args)
       games = runGames(**args)
 
@@ -112,7 +178,16 @@ def main():
       child.food_count = food_count[0]
       child.capsules_count = capsules_count[0]
     
-    individuals = list(reversed(sorted(individuals + children, key=lambda x: x.fitness())))[:NUMBER_OF_INDIVIDUALS]
+    individuals = []
+    if INDIVIDUALS_PERSIST:
+      individuals = list(reversed(sorted(individuals + children, key=lambda x: x.fitness())))[:NUMBER_OF_INDIVIDUALS]
+    else:
+      individuals = list(reversed(sorted(children, key=lambda x: x.fitness())))[:NUMBER_OF_INDIVIDUALS]
+
+    # mutation
+    if MUTATION:
+      for ind in individuals:
+        mutation(ind)
 
   print gen_performance
 
