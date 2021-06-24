@@ -155,7 +155,7 @@ def main(argv):
 
       # play generation
       for offspring in offsprings:
-        offspring_args = ['-p', 'EvolutiveAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+        offspring_args = ['-p', 'GeneticAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
         games = play(offspring_args)
         performance = evaluateGames(games)
         offspring.score = performance['score']
