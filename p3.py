@@ -1,195 +1,176 @@
-import os
-import cPickle
-from collections import Counter
-
+import sys, os, cPickle, itertools
+from optparse import OptionParser
 from pacman import readCommand, runGames
 from layout import getLayout
 
+
 class Individual:
-  def __init__(self, score = float("inf"), win = False, moveHistory = [], food_count = 55, capsules_count = 2):
+  _id = itertools.count().next
+
+  def __init__(self, score = float("inf"), win_percentage = 0, actions = [], food_count = 55, capsules_count = 2, actions_count = 0, fitness = 0):
+    self.id = Individual._id()
     self.score = score
-    self.win = win
-    self.moveHistory = moveHistory
+    self.win_percentage = win_percentage
+    self.move_history = None
+    self.actions = actions
     self.food_count = food_count
     self.capsules_count = capsules_count
+    self.actions_count = actions_count
+    self.fitness = fitness
 
-  def fitness(self):
-    return self.score + 10000 * int(self.win) - (1000 * self.capsules_count + 1000 * self.food_count)
+class Generation:
+  def __init__(self, _id = 0, individuals = []):
+    self.id = _id
+    self.individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness)))
 
+  def best_fitness(self):
+    return self.individuals[0]
 
-# asexual reproduction
-def duplication(individuals, gen, layout, crop = 3, factor = 2):
-  new_individuals = []
-  for (index, ind) in enumerate(factor * individuals):
-    moves = ind.moveHistory
-    if type(moves) is str:
-      f = open(moves)
-      moves = cPickle.load(f)['actions']
-      f.close()
-    
-    moves = moves[:crop]
+  def worst_fitness(self):
+    return self.individuals[-1]
 
-    _dir = 'gen-{gen}'.format(gen=gen)
-    if not os.path.exists(_dir):
-      os.mkdir(_dir)
-    
-    fname = '{dir}/child-{child}'.format(dir=_dir, child=index)
-    f = file(fname, 'w')
-    
-    components = {'layout': getLayout(layout), 'actions': moves}
-    cPickle.dump(components, f)
-    f.close()
+  def best_score(self):
+    _max = max(self.individuals, key=lambda x: x.score)
+    index = self.individuals.index(_max)
+    return self.individuals[index]
 
-    new_individuals.append(Individual(moveHistory=fname))
+  def worst_score(self):
+    _min = min(self.individuals, key=lambda x: x.score)
+    index = self.individuals.index(_min)
+    return self.individuals[index]
 
-  return new_individuals
-
-
-
-def get_half_moves(individual):
-  moves = individual.moveHistory
-  if type(individual.moveHistory) is str:
-    f = open(individual.moveHistory)
-    moves = cPickle.load(f)['actions']
-    f.close()
-    
-  return moves[:(len(moves) // 2)] 
-
-# sexual reproduction
-def crossover(individuals, gen, layout):
-  i = 0
-  j = len(individuals) - 1
-  children = []
-
-  while i < j:
-    p1_first_half_moves = get_half_moves(individuals[i])
-    p2_second_half_moves = get_half_moves(individuals[j])
-
-    children_move_history = p1_first_half_moves + p2_second_half_moves
-
-    _dir = 'gen-{gen}'.format(gen=gen)
-    if not os.path.exists(_dir):
-      os.mkdir(_dir)
-    
-    fname = '{dir}/child-{child}'.format(dir=_dir, child=i)
-    f = file(fname, 'w')
-    
-    components = {'layout': getLayout(layout), 'actions': children_move_history}
-    cPickle.dump(components, f)
-    f.close()
-
-    children.append(Individual(moveHistory=fname))
-
-    i += 1
-    j -= 1
-
-  return children
+  def performance(self):
+    print 'GENERATION {gen}'.format(gen=self.id)
+    print 'Best Score: {best_score:.2f}'.format(best_score=self.best_score().score)
+    print 'Worst Score: {worst_score:.2f}'.format(worst_score=self.worst_score().score)
+    print 'Avg Score: {avg_score:.2f}'.format(avg_score=sum(ind.score for ind in self.individuals) / len(self.individuals))
+    print 'Best Fitness: {best_fitness:.2f}'.format(best_fitness=self.best_fitness().fitness)
+    print 'Worst Fitness: {worst_fitness:.2f}'.format(worst_fitness=self.worst_fitness().fitness)
+    print 'Avg Fitness: {avg_fitness:.2f}'.format(avg_fitness=sum(ind.fitness for ind in self.individuals) / len(self.individuals))
 
 
-def mutation(individual, crop = 3):
-  if type(individual.moveHistory) is str:
-    f = open(individual.moveHistory, 'rb')
-    components = cPickle.load(f)
-    f.close()
+def play(args):
+  _args = readCommand(args)
+  games = runGames(**_args)
+  return games
 
-    components['actions'] = components['actions'][:crop]
-    f = open(individual.moveHistory, 'wb')
-    cPickle.dump(components, f)
-    f.close()
-  else:
-    individual.moveHistory = individual.moveHistory[:crop]
-
-
-def evaluateIndividual(games):
+def evaluateGames(games):
+  """Get winner (or loser if none of them won) with the best score"""
   scores = [game.state.getScore() for game in games]
   wins = [game.state.isWin() for game in games]
 
-  best_score = max(score)
-  best_index = scores.index(best_score)
+  wins_index = [i for i, v in enumerate(wins) if v == True]
+  best_index = 0
+  if len(wins_index) > 0:
+    best_score = wins_index[best_index]
+    for i in range(1, len(wins_index)):
+      if scores[i] > scores[best_index]:
+        best_index = i
+  else:
+    best_score = max(scores)
+    best_index = scores.index(best_score)
 
+  wins_count = wins.count(True)
+  defeats_count = wins.count(False)
 
-  move_history = games[best_index].moveHistory
-  food_count = [game.state.getNumFood() for game in games]
-  capsules_count = [len(game.state.getCapsules()) for game in games]
+  # performance
+  perf = dict()
+  perf['score'] = scores[best_index]
+  perf['win_percentage'] = wins_count / defeats_count
+  perf['actions'] = games[best_index].moveHistory
+  perf['food_count'] = [game.state.getNumFood() for game in games][best_index]
+  perf['capsules_count'] = [len(game.state.getCapsules()) for game in games][best_index]
+  perf['actions_count'] = len(games[best_index].moveHistory)
+  perf['fitness'] = sum(scores) / len(scores)
 
-  return Individual(scores[best_index], wins[best_index], move_history, food_count[best_index], capsules_count[best_index])
+  return perf
 
+def storeIndividual(individual, gen, layout):
+  _dir = 'gen-{gen}'.format(gen=gen)
+  if not os.path.exists(_dir):
+    os.mkdir(_dir)
 
-def main():
-  NUMBER_OF_GENERATIONS = 5
-  NUMBER_OF_INDIVIDUALS = 4
-  LAYOUT = 'smallClassic'
-  REPRODUCTION = 'asexual'
-  FACTOR = 2
-  crop = 2
-  INDIVIDUALS_PERSIST = False
-  MUTATION = False
+  file_name = '{dir}/ind-{id}'.format(dir=_dir, id=individual.id)
+  f = file(file_name, 'w')
+  
+  individual.move_history = file_name
+  components = {'layout': getLayout(layout), 'actions': individual.actions}
+  cPickle.dump(components, f)
+  f.close()
 
-  gen_performance = {}
+  return individual
+
+def mutation(individual, crop = 4):
+  f = open(individual.move_history)
+  components = cPickle.load(f)
+  f.close()
+
+  return Individual(actions=components['actions'][:crop])
+
+def main(argv):
+  usageStr = """"""
+  parser = OptionParser(usageStr)
+
+  parser.add_option('--numGen', type='int', default=100)
+  parser.add_option('--numPop', type='int', default=10)
+  parser.add_option('--layout', type='str', default='smallClassic')
+  parser.add_option('--numGames', type='int', default=3)
+  parser.add_option('--numSelection', type='int', default=10)
+
+  options, junk = parser.parse_args(argv)
+
+  args = dict()
+  args['numGen'] = options.numGen
+  args['numPop'] = options.numPop
+  args['layout'] = options.layout
+  args['numGames'] = options.numGames
+  args['numSelection'] = options.numSelection
+
   individuals = []
-  default_args = ['-p', 'RandomAgent', '--layout', LAYOUT, '--numGames', 3]
-
-  for gen in range(NUMBER_OF_GENERATIONS):
+  for gen in range(args['numGen']):
     print 'Generation {gen}'.format(gen=gen)
+
+    # first generation uses RandomAgent
+    default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames'])]
     if gen == 0:
-      for _ in range(NUMBER_OF_INDIVIDUALS):
-        args = readCommand(default_args)
-        games = runGames(**args)
-
-        scores = [game.state.getScore() for game in games]
-        wins = [game.state.isWin() for game in games]
-        move_history = games[0].moveHistory
-        food_count = [game.state.getNumFood() for game in games]
-        capsules_count = [len(game.state.getCapsules()) for game in games]
-
-        individuals.append(evaluateIndividual(games))
-
-    # generation average
-    gen_performance[gen] = []
-    gen_performance[gen].append(sum(ind.score for ind in individuals) / NUMBER_OF_INDIVIDUALS)
-    gen_performance[gen].append(sum([ind.fitness() for ind in individuals]))
-    gen_performance[gen].append(Counter([ind.win for ind in individuals]))
-
-    # parents - best from current generation
-    best_individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness())))[:(NUMBER_OF_INDIVIDUALS // FACTOR)]
-
-    crop += 1
-
-    # reproduction
-    children = []
-    if REPRODUCTION == 'sexual':
-      children = crossover(best_individuals, gen, LAYOUT)
+      for _ in range(args['numPop']):
+        games = play(default_args)
+        performance = evaluateGames(games)
+        individual = Individual(
+          performance['score'],
+          performance['win_percentage'],
+          performance['actions'],
+          performance['food_count'],
+          performance['capsules_count'],
+          performance['actions_count'],
+          performance['fitness']
+        )
+        storeIndividual(individual, gen, args['layout'])
+        individuals.append(individual)
     else:
-      children = duplication(best_individuals, gen, LAYOUT, crop, FACTOR)
-
-    # evaluate children
-    for child in children:
-      children_args = ['-p', 'EvolutiveAgent', '--agentArgs', 'moveHistory={moveHistory}'.format(moveHistory=child.moveHistory), '--layout', LAYOUT]
-      args = readCommand(children_args)
-      games = runGames(**args)
-
-      scores = [game.state.getScore() for game in games]
-      wins = [game.state.isWin() for game in games]
-      food_count = [game.state.getNumFood() for game in games]
-      capsules_count = [len(game.state.getCapsules()) for game in games]
-
-      child.score = scores[0]
-      child.win = wins[0]
-      child.food_count = food_count[0]
-      child.capsules_count = capsules_count[0]
-    
-    individuals = []
-    if INDIVIDUALS_PERSIST:
-      individuals = list(reversed(sorted(individuals + children, key=lambda x: x.fitness())))[:NUMBER_OF_INDIVIDUALS]
-    else:
-      individuals = list(reversed(sorted(children, key=lambda x: x.fitness())))[:NUMBER_OF_INDIVIDUALS]
-
-    # mutation
-    if MUTATION:
+      # next generation
+      offsprings = []
       for ind in individuals:
-        mutation(ind)
+        offsprings.append(storeIndividual(mutation(ind), gen, args['layout']))
 
-  print gen_performance
+      # play generation
+      for offspring in offsprings:
+        offspring_args = ['-p', 'EvolutiveAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+        games = play(offspring_args)
+        performance = evaluateGames(games)
+        offspring.score = performance['score']
+        offspring.win_percentage = performance['win_percentage']
+        offspring.food_count = performance['food_count']
+        offspring.capsules_count = performance['capsules_count']
+        offspring.actions_count = performance['actions_count']
+        offspring.fitness = performance['fitness']
+
+      individuals = offsprings[:]
 
 
-main()
+    # generation performance
+    generation = Generation(gen, individuals)
+    generation.performance()
+
+
+main(sys.argv[1:])
