@@ -39,11 +39,16 @@ class Generation:
     index = self.individuals.index(_min)
     return self.individuals[index]
 
+  def win_percentage(self):
+    wins_average = sum([x.win_percentage for x in self.individuals])
+    return wins_average / len(self.individuals)
+
   def performance(self):
     print 'GENERATION {gen}'.format(gen=self.id)
     print 'Best Score: {best_score:.2f}'.format(best_score=self.best_score().score)
     print 'Worst Score: {worst_score:.2f}'.format(worst_score=self.worst_score().score)
     print 'Avg Score: {avg_score:.2f}'.format(avg_score=sum(ind.score for ind in self.individuals) / len(self.individuals))
+    print 'Wins Percentage: {wins_percentage:.2f}'.format(wins_percentage=self.win_percentage())
     print 'Best Fitness: {best_fitness:.2f}'.format(best_fitness=self.best_fitness().fitness)
     print 'Worst Fitness: {worst_fitness:.2f}'.format(worst_fitness=self.worst_fitness().fitness)
     print 'Avg Fitness: {avg_fitness:.2f}'.format(avg_fitness=sum(ind.fitness for ind in self.individuals) / len(self.individuals))
@@ -70,13 +75,10 @@ def evaluateGames(games):
     best_score = max(scores)
     best_index = scores.index(best_score)
 
-  wins_count = wins.count(True)
-  defeats_count = wins.count(False)
-
   # performance
   perf = dict()
   perf['score'] = scores[best_index]
-  perf['win_percentage'] = wins_count / defeats_count
+  perf['win_percentage'] = float(wins.count(True)) / len(wins)
   perf['actions'] = games[best_index].moveHistory
   perf['food_count'] = [game.state.getNumFood() for game in games][best_index]
   perf['capsules_count'] = [len(game.state.getCapsules()) for game in games][best_index]
@@ -100,22 +102,22 @@ def storeIndividual(individual, gen, layout):
 
   return individual
 
-def mutation(individual, crop = 4):
+def mutation(individual, threshold = 10):
   f = open(individual.move_history)
   components = cPickle.load(f)
   f.close()
 
-  return Individual(actions=components['actions'][:crop])
+  return Individual(actions=components['actions'][:-threshold])
 
 def main(argv):
   usageStr = """"""
   parser = OptionParser(usageStr)
 
   parser.add_option('--numGen', type='int', default=100)
-  parser.add_option('--numPop', type='int', default=10)
+  parser.add_option('--numPop', type='int', default=50)
   parser.add_option('--layout', type='str', default='smallClassic')
   parser.add_option('--numGames', type='int', default=3)
-  parser.add_option('--numSelection', type='int', default=10)
+  parser.add_option('--numSelection', type='int', default=50)
 
   options, junk = parser.parse_args(argv)
 

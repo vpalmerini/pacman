@@ -38,7 +38,14 @@ class GeneticAgent(Agent):
       elif action == Directions.WEST:
         scores[action] = self.evaluateDirection(state, x-1, y)
 
-    return max(scores, key=lambda key: scores[key])
+    best_action = max(scores.items(), key=lambda x: x[1])
+
+    best_directions = []
+    for k, v in scores.items():
+      if v == best_action[1]:
+        best_directions.append(k)
+
+    return random.choice(best_directions)
 
 
   def getAction(self, state):
