@@ -54,12 +54,22 @@ class Generation:
     print 'Avg Fitness: {avg_fitness:.2f}'.format(avg_fitness=sum(ind.fitness for ind in self.individuals) / len(self.individuals))
 
 
+def fitness(method, scores = [], wins = [], movements = []):
+  methods = {
+    'average_score': sum(scores) / len(scores),
+    'number_of_wins': len([w for w in wins if w == True]),
+    'average_score_by_movements_length': (sum(scores) / len(scores)) / len(movements)
+  }
+
+  return methods[method]
+
+
 def play(args):
   _args = readCommand(args)
   games = runGames(**_args)
   return games
 
-def evaluateGames(games):
+def evaluateGames(games, _fitness):
   """Get winner (or loser if none of them won) with the best score"""
   scores = [game.state.getScore() for game in games]
   wins = [game.state.isWin() for game in games]
@@ -83,7 +93,7 @@ def evaluateGames(games):
   perf['food_count'] = [game.state.getNumFood() for game in games][best_index]
   perf['capsules_count'] = [len(game.state.getCapsules()) for game in games][best_index]
   perf['actions_count'] = len(games[best_index].moveHistory)
-  perf['fitness'] = sum(scores) / len(scores)
+  perf['fitness'] = fitness(_fitness, scores, wins, games[best_index].moveHistory)
 
   return perf
 
@@ -118,6 +128,7 @@ def main(argv):
   parser.add_option('--layout', type='str', default='smallClassic')
   parser.add_option('--numGames', type='int', default=3)
   parser.add_option('--numSelection', type='int', default=50)
+  parser.add_option('--fitness', type='str', default='average_score')
 
   options, junk = parser.parse_args(argv)
 
@@ -127,7 +138,8 @@ def main(argv):
   args['layout'] = options.layout
   args['numGames'] = options.numGames
   args['numSelection'] = options.numSelection
-
+  args['fitness'] = options.fitness
+  
   individuals = []
   for gen in range(args['numGen']):
     print 'Generation {gen}'.format(gen=gen)
@@ -137,7 +149,7 @@ def main(argv):
     if gen == 0:
       for _ in range(args['numPop']):
         games = play(default_args)
-        performance = evaluateGames(games)
+        performance = evaluateGames(games, args['fitness'])
         individual = Individual(
           performance['score'],
           performance['win_percentage'],
@@ -159,7 +171,7 @@ def main(argv):
       for offspring in offsprings:
         offspring_args = ['-p', 'GeneticAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
         games = play(offspring_args)
-        performance = evaluateGames(games)
+        performance = evaluateGames(games, args['fitness'])
         offspring.score = performance['score']
         offspring.win_percentage = performance['win_percentage']
         offspring.food_count = performance['food_count']
