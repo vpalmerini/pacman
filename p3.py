@@ -1,4 +1,7 @@
 import sys, os, cPickle, itertools
+import math
+import random
+
 from optparse import OptionParser
 from pacman import readCommand, runGames
 from layout import getLayout
@@ -112,12 +115,19 @@ def storeIndividual(individual, gen, layout):
 
   return individual
 
-def mutation(individual, threshold = 10):
+def mutation(individual, factor):
   f = open(individual.move_history)
   components = cPickle.load(f)
   f.close()
 
-  return Individual(actions=components['actions'][:-threshold])
+  actions = components['actions']
+  valid_movements = ['Stop', 'North', 'East', 'South', 'West']
+  movements_to_change = int(math.ceil(factor * len(actions)))
+  for _ in range(movements_to_change):
+    index = random.randint(0, len(actions) - 1)
+    actions[index] = random.choice(valid_movements)
+
+  return Individual(actions=actions)
 
 def main(argv):
   usageStr = """"""
@@ -129,6 +139,7 @@ def main(argv):
   parser.add_option('--numGames', type='int', default=3)
   parser.add_option('--numSelection', type='int', default=50)
   parser.add_option('--fitness', type='str', default='average_score')
+  parser.add_option('--mutation', type='float', default=0.1)
 
   options, junk = parser.parse_args(argv)
 
@@ -139,6 +150,7 @@ def main(argv):
   args['numGames'] = options.numGames
   args['numSelection'] = options.numSelection
   args['fitness'] = options.fitness
+  args['mutation'] = options.mutation
   
   individuals = []
   for gen in range(args['numGen']):
@@ -162,10 +174,10 @@ def main(argv):
         storeIndividual(individual, gen, args['layout'])
         individuals.append(individual)
     else:
-      # next generation
+      # next generations
       offsprings = []
       for ind in individuals:
-        offsprings.append(storeIndividual(mutation(ind), gen, args['layout']))
+        offsprings.append(storeIndividual(mutation(ind, args['mutation']), gen, args['layout']))
 
       # play generation
       for offspring in offsprings:
