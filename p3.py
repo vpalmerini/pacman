@@ -116,18 +116,30 @@ def storeIndividual(individual, gen, layout):
   return individual
 
 def mutation(individual, factor):
-  f = open(individual.move_history)
-  components = cPickle.load(f)
-  f.close()
-
-  actions = components['actions']
+  actions = individual.actions
   valid_movements = ['Stop', 'North', 'East', 'South', 'West']
   movements_to_change = int(math.ceil(factor * len(actions)))
   for _ in range(movements_to_change):
     index = random.randint(0, len(actions) - 1)
     actions[index] = random.choice(valid_movements)
 
-  return Individual(actions=actions)
+  return actions
+
+def reproduction(parent_A, parent_B, layout, cut = 0.5):
+  f_A = open(parent_A.move_history)
+  components_A = cPickle.load(f_A)
+  first_cut_A = components_A['actions'][int(cut * len(components_A)):]
+
+  f_B = open(parent_B.move_history)
+  components_B = cPickle.load(f_B)
+  first_cut_B = components_B['actions'][int(cut * len(components_B)):]
+
+  sibling_A = first_cut_B + components_A['actions'][:int(cut * len(components_A))]
+  sibling_B = first_cut_A + components_B['actions'][:int(cut * len(components_B))]
+
+  parent_A.actions = sibling_A
+  parent_B.actions = sibling_B
+
 
 def main(argv):
   usageStr = """"""
@@ -137,9 +149,10 @@ def main(argv):
   parser.add_option('--numPop', type='int', default=50)
   parser.add_option('--layout', type='str', default='smallClassic')
   parser.add_option('--numGames', type='int', default=3)
-  parser.add_option('--numSelection', type='int', default=50)
   parser.add_option('--fitness', type='str', default='average_score')
   parser.add_option('--mutation', type='float', default=0.1)
+  parser.add_option('--numBest', type='float', default=0.1)
+  parser.add_option('--reproductionCut', type='float', default=0.5)
 
   options, junk = parser.parse_args(argv)
 
@@ -148,9 +161,12 @@ def main(argv):
   args['numPop'] = options.numPop
   args['layout'] = options.layout
   args['numGames'] = options.numGames
-  args['numSelection'] = options.numSelection
   args['fitness'] = options.fitness
   args['mutation'] = options.mutation
+  args['numBest'] = options.numBest
+  args['reproductionCut'] = options.reproductionCut
+
+
   
   individuals = []
   for gen in range(args['numGen']):
@@ -175,9 +191,48 @@ def main(argv):
         individuals.append(individual)
     else:
       # next generations
+      siblings = []
+
+      # sort individuals from best to worst
+      sorted_individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness)))
+      best = sorted_individuals[0]
+      worst = sorted_individuals[-1]
+
+      score_variance = best.score / worst.score
+      if score_variance > 0:
+        if best.score < 0:
+          if score_variance >= 0.9:
+            break
+        else:
+          if score_variance <= 1.1:
+            break
+
+      # get numBest bests
+      bestCut = int(args['numBest'] * len(sorted_individuals))
+      best_individuals = sorted_individuals[:bestCut]
+      available_to_reproduct = sorted_individuals[bestCut:]
+
+      # reproduction
+      while len(available_to_reproduct) > 1:
+        index1 = random.randint(0, len(available_to_reproduct) - 1)
+        parent1 = available_to_reproduct.pop(index1)
+        index2 = random.randint(0, len(available_to_reproduct) - 1)
+        parent2 = available_to_reproduct.pop(index2)
+        reproduction(parent1, parent2, args['layout'], args['reproductionCut'])
+        
+        siblings.append(parent1)
+        siblings.append(parent2)
+
       offsprings = []
-      for ind in individuals:
-        offsprings.append(storeIndividual(mutation(ind, args['mutation']), gen, args['layout']))
+      for sibling in siblings:
+        offsprings.append(storeIndividual(Individual(actions=mutation(sibling, args['mutation'])), gen, args['layout']))
+
+      for ind in best_individuals:
+        offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
+
+      # in case somebody was left with no partner :(
+      for alone in available_to_reproduct:
+        offsprings.append(storeIndividual(Individual(actions=mutation(alone, args['mutation'])), gen, args['layout']))
 
       # play generation
       for offspring in offsprings:
@@ -192,7 +247,6 @@ def main(argv):
         offspring.fitness = performance['fitness']
 
       individuals = offsprings[:]
-
 
     # generation performance
     generation = Generation(gen, individuals)
