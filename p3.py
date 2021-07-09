@@ -1,11 +1,12 @@
 import sys, os, cPickle, itertools
 import math
 import random
-
+import plotly.express as px
+import pandas as pd
+import matplotlib.pyplot as plt
 from optparse import OptionParser
 from pacman import readCommand, runGames
 from layout import getLayout
-
 
 class Individual:
   _id = itertools.count().next
@@ -46,7 +47,8 @@ class Generation:
     wins_average = sum([x.win_percentage for x in self.individuals])
     return wins_average / len(self.individuals)
 
-  def performance(self):
+  def performance(self, df):
+    df = df.append({'Best_score':self.best_score().score, 'Worst_score':self.worst_score().score, 'Average_score':sum(ind.score for ind in self.individuals) / len(self.individuals),'Generation':self.id}, ignore_index=True)
     print 'GENERATION {gen}'.format(gen=self.id)
     print 'Best Score: {best_score:.2f}'.format(best_score=self.best_score().score)
     print 'Worst Score: {worst_score:.2f}'.format(worst_score=self.worst_score().score)
@@ -55,6 +57,7 @@ class Generation:
     print 'Best Fitness: {best_fitness:.2f}'.format(best_fitness=self.best_fitness().fitness)
     print 'Worst Fitness: {worst_fitness:.2f}'.format(worst_fitness=self.worst_fitness().fitness)
     print 'Avg Fitness: {avg_fitness:.2f}'.format(avg_fitness=sum(ind.fitness for ind in self.individuals) / len(self.individuals))
+    return df
 
 
 def fitness(method, scores = [], wins = [], movements = []):
@@ -142,11 +145,13 @@ def reproduction(parent_A, parent_B, layout, cut = 0.5):
 
 
 def main(argv):
+  POPULATION = 50
   usageStr = """"""
   parser = OptionParser(usageStr)
+  df = pd.DataFrame({'Best_score':[], 'Worst_score':[], 'Average_score':[], 'Generation':[]})
 
   parser.add_option('--numGen', type='int', default=100)
-  parser.add_option('--numPop', type='int', default=50)
+  parser.add_option('--numPop', type='int', default=POPULATION)
   parser.add_option('--layout', type='str', default='smallClassic')
   parser.add_option('--numGames', type='int', default=3)
   parser.add_option('--fitness', type='str', default='average_score')
@@ -250,7 +255,11 @@ def main(argv):
 
     # generation performance
     generation = Generation(gen, individuals)
-    generation.performance()
+    df = generation.performance(df)
+
+  fig = px.line(df, x='Generation', y=['Best_score', 'Worst_score', 'Average_score'], title='Pacman genetic learning',
+                  labels=dict(value = 'Score'))
+  fig.show()
 
 
 main(sys.argv[1:])
