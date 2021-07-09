@@ -152,6 +152,7 @@ def main(argv):
   parser.add_option('--fitness', type='str', default='average_score')
   parser.add_option('--mutation', type='float', default=0.1)
   parser.add_option('--numBest', type='float', default=0.1)
+  parser.add_option('--numWorst', type='float', default=0.1)
   parser.add_option('--reproductionCut', type='float', default=0.5)
 
   options, junk = parser.parse_args(argv)
@@ -164,6 +165,7 @@ def main(argv):
   args['fitness'] = options.fitness
   args['mutation'] = options.mutation
   args['numBest'] = options.numBest
+  args['numWorst'] = options.numWorst
   args['reproductionCut'] = options.reproductionCut
 
 
@@ -173,7 +175,7 @@ def main(argv):
     print 'Generation {gen}'.format(gen=gen)
 
     # first generation uses RandomAgent
-    default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames'])]
+    default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames']), '--numghosts', str(0)]
     if gen == 0:
       for _ in range(args['numPop']):
         games = play(default_args)
@@ -209,8 +211,10 @@ def main(argv):
 
       # get numBest bests
       bestCut = int(args['numBest'] * len(sorted_individuals))
+      worstCut = int(args['numWorst'] * len(sorted_individuals))
       best_individuals = sorted_individuals[:bestCut]
-      available_to_reproduct = sorted_individuals[bestCut:]
+      worst_individuals = sorted_individuals[:-worstCut]
+      available_to_reproduct = sorted_individuals[bestCut:-worstCut]
 
       # reproduction
       while len(available_to_reproduct) > 1:
@@ -230,13 +234,16 @@ def main(argv):
       for ind in best_individuals:
         offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
 
+      for ind in worst_individuals:
+        offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
+
       # in case somebody was left with no partner :(
       for alone in available_to_reproduct:
         offsprings.append(storeIndividual(Individual(actions=mutation(alone, args['mutation'])), gen, args['layout']))
 
       # play generation
       for offspring in offsprings:
-        offspring_args = ['-p', 'GeneticAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+        offspring_args = ['-p', 'GeneticAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames']), '--numghosts', str(0)]
         games = play(offspring_args)
         performance = evaluateGames(games, args['fitness'])
         offspring.score = performance['score']
