@@ -119,9 +119,13 @@ def mutation(individual, factor):
   actions = individual.actions
   valid_movements = ['Stop', 'North', 'East', 'South', 'West']
   movements_to_change = int(math.ceil(factor * len(actions)))
-  for _ in range(movements_to_change):
+  
+  done = 0
+  while done < movements_to_change:
     index = random.randint(0, len(actions) - 1)
-    actions[index] = random.choice(valid_movements)
+    if actions[index][0] == 0:
+      actions[index] = (0, random.choice(valid_movements))
+      done += 1
 
   return actions
 
@@ -175,7 +179,7 @@ def main(argv):
     print 'Generation {gen}'.format(gen=gen)
 
     # first generation uses RandomAgent
-    default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames']), '--numghosts', str(0)]
+    default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames'])]
     if gen == 0:
       for _ in range(args['numPop']):
         games = play(default_args)
@@ -243,7 +247,7 @@ def main(argv):
 
       # play generation
       for offspring in offsprings:
-        offspring_args = ['-p', 'GeneticAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames']), '--numghosts', str(0)]
+        offspring_args = ['-p', 'GeneticAgent', '-q', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
         games = play(offspring_args)
         performance = evaluateGames(games, args['fitness'])
         offspring.score = performance['score']
