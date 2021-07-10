@@ -122,9 +122,13 @@ def mutation(individual, factor):
   actions = individual.actions
   valid_movements = ['Stop', 'North', 'East', 'South', 'West']
   movements_to_change = int(math.ceil(factor * len(actions)))
-  for _ in range(movements_to_change):
+  
+  done = 0
+  while done < movements_to_change:
     index = random.randint(0, len(actions) - 1)
-    actions[index] = random.choice(valid_movements)
+    if actions[index][0] == 0:
+      actions[index] = (0, random.choice(valid_movements))
+      done += 1
 
   return actions
 
@@ -157,6 +161,7 @@ def main(argv):
   parser.add_option('--fitness', type='str', default='average_score')
   parser.add_option('--mutation', type='float', default=0.1)
   parser.add_option('--numBest', type='float', default=0.1)
+  parser.add_option('--numWorst', type='float', default=0.1)
   parser.add_option('--reproductionCut', type='float', default=0.5)
 
   options, junk = parser.parse_args(argv)
@@ -169,6 +174,7 @@ def main(argv):
   args['fitness'] = options.fitness
   args['mutation'] = options.mutation
   args['numBest'] = options.numBest
+  args['numWorst'] = options.numWorst
   args['reproductionCut'] = options.reproductionCut
 
 
@@ -214,8 +220,10 @@ def main(argv):
 
       # get numBest bests
       bestCut = int(args['numBest'] * len(sorted_individuals))
+      worstCut = int(args['numWorst'] * len(sorted_individuals))
       best_individuals = sorted_individuals[:bestCut]
-      available_to_reproduct = sorted_individuals[bestCut:]
+      worst_individuals = sorted_individuals[:-worstCut]
+      available_to_reproduct = sorted_individuals[bestCut:-worstCut]
 
       # reproduction
       while len(available_to_reproduct) > 1:
@@ -233,6 +241,9 @@ def main(argv):
         offsprings.append(storeIndividual(Individual(actions=mutation(sibling, args['mutation'])), gen, args['layout']))
 
       for ind in best_individuals:
+        offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
+
+      for ind in worst_individuals:
         offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
 
       # in case somebody was left with no partner :(
