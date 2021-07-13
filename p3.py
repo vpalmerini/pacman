@@ -72,9 +72,10 @@ def fitness(method, scores = [], wins = [], movements = [], food = []):
   methods = {
     'average_score': sum(scores) / len(scores),
     'number_of_wins': len([w for w in wins if w == True]),
-    'number_of_wins_per_score': len([w for w in wins if w == True])*500 + sum(scores) / len(scores),
-    'average_score_by_movements_length': (sum(scores) / len(scores)) / len(movements),
-    'greedy_bonus': (sum(food) / len(food))*5 + (sum(scores) / len(scores))
+    'wins_bonus_per_score': len([w for w in wins if w == True])*500 + sum(scores) / len(scores),
+    'average_score_by_movements_length': (sum(scores) / len(scores)) / (len(movements)*2),
+    'greedy_bonus': (sum(food) / len(food))*10 + (sum(scores) / len(scores)),
+    'balanced': (sum(food) / len(food))*10 + len([w for w in wins if w == True])*500 + (sum(scores) / len(scores)) / (len(movements)*2),
   }
 
   return methods[method]
@@ -165,10 +166,10 @@ def main(argv):
   df = pd.DataFrame({'Best_score':[], 'Worst_score':[], 'Average_score':[], 'Generation':[], 'Best Fitness':[], 'Worst Fitness':[], 'Avg Fitness':[]})
 
   parser.add_option('--numGen', type='int', default=10)
-  parser.add_option('--numPop', type='int', default=5000)
+  parser.add_option('--numPop', type='int', default=1000)
   parser.add_option('--layout', type='str', default='smallClassic')
   parser.add_option('--numGames', type='int', default=1)
-  parser.add_option('--fitness', type='str', default='number_of_wins_per_score')
+  parser.add_option('--fitness', type='str', default='balanced')
   parser.add_option('--mutation', type='float', default=0.15)
   parser.add_option('--numBest', type='float', default=0.1)
   parser.add_option('--numWorst', type='float', default=0.1)
@@ -188,11 +189,11 @@ def main(argv):
   args['reproductionCut'] = options.reproductionCut
 
 
-  
   individuals = []
+  print('Number of individuals: ' + str(args['numPop']))
   for gen in range(args['numGen']):
     print 'Generation {gen}'.format(gen=gen)
-
+    
     # first generation uses RandomAgent
     default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames'])]
     if gen == 0:
@@ -216,9 +217,9 @@ def main(argv):
 
       # sort individuals from best to worst
       sorted_individuals = list(reversed(sorted(individuals, key=lambda x: x.fitness)))
-      print('Numero individuos:' + str(len(individuals)))
       best = sorted_individuals[0]
       worst = sorted_individuals[-1]
+      
 
 #       score_variance = best.score / worst.score
 #       if score_variance > 0:
@@ -235,7 +236,6 @@ def main(argv):
       best_individuals = sorted_individuals[:bestCut]
       worst_individuals = sorted_individuals[-worstCut:]
       available_to_reproduct = sorted_individuals[:]
-        #[bestCut:-worstCut]
         
       offsprings = []
     
@@ -258,18 +258,9 @@ def main(argv):
       for sibling in sorted_siblings[:(len(sorted_siblings) - len(best_individuals))]:
         offsprings.append(storeIndividual(Individual(actions=mutation(sibling, args['mutation'])), gen, args['layout']))
 
-      
-
-     # for ind in worst_individuals:
-     #   offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
-
-      # in case somebody was left with no partner :(
-      #for alone in available_to_reproduct:
-      #  offsprings.append(storeIndividual(Individual(actions=mutation(alone, args['mutation'])), gen, args['layout']))
-
       # play generation
       for offspring in offsprings:
-        offspring_args = ['-q', '--fixRandomSeed','-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+        offspring_args = ['-q', '-f', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
         games = play(offspring_args)
         performance = evaluateGames(games, args['fitness'])
         offspring.score = performance['score']
@@ -283,12 +274,12 @@ def main(argv):
 
     # generation performance
     generation = Generation(gen, individuals)
-    print(generation.best_score().id)
-    best_args = ['--fixRandomSeed', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=generation.best_score().move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+    print('Generation best score id: ' + str(generation.best_score().id))
     
+    #play the best individual
+    best_args = ['-f', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=generation.best_score().move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
     play(best_args)
-    worst_args = ['--fixRandomSeed', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=generation.worst_score().move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
-    #play(worst_args)
+    
     df = generation.performance(df)
 
   fig = px.line(df, x='Generation', y=['Best_score', 'Worst_score', 'Average_score', 'Best Fitness', 'Worst Fitness', 'Avg Fitness'], title='Pacman genetic learning',
