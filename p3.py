@@ -217,7 +217,7 @@ def main(argv):
       bestCut = int(args['numBest'] * len(sorted_individuals))
       worstCut = int(args['numWorst'] * len(sorted_individuals))
       best_individuals = sorted_individuals[:bestCut]
-      worst_individuals = sorted_individuals[:-worstCut]
+      worst_individuals = sorted_individuals[-worstCut:]
       available_to_reproduct = sorted_individuals[bestCut:-worstCut]
 
       # reproduction

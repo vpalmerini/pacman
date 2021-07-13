@@ -4,25 +4,34 @@ from game import Agent
 from pacman import Directions
 
 class QAgent(Agent):
-  def __init__(self, numTraining, learning_rate = 0.7, exploration_rate = 0.7, discount_factor = 0.2):
-    self.learning_rate = learning_rate
-    self.exploration_rate = exploration_rate
-    self.discount_factor = discount_factor
-    self.num_training = numTraining
+  def __init__(self, numGames = 1000, learningRate = 0.8, explorationRate = 0.8, discountFactor = 0.5):
+    self.learning_rate = float(learningRate)
+    self.exploration_rate = float(explorationRate)
+    self.discount_factor = float(discountFactor)
+    self.num_games = int(numGames)
     self.episodes = 0
     self.q_table = dict()
     self.prev_position = None
     self.prev_action = None
-    self.prev_score = None
-
+    self.prev_score = 0
+    self.cumulativeReward = 0
+    self.rewards = []
+    self.cumulativeActions = 0
+    self.num_actions = []
+    self.scores = []
   
   def bellman_equation(self, state, final = False):
+    capsules = state.getCapsules()
+    food = state.getFood()
+    ghosts = state.getGhostPositions()
     position = state.getPacmanPosition()
+
     max_q_value = 0
     if not final:
       max_q_value = max(list(self.q_table[position].values()))
 
     reward = state.getScore() - self.prev_score
+    self.cumulativeReward += reward
     self.q_table[self.prev_position][self.prev_action] += (self.learning_rate * (reward + self.discount_factor * max_q_value - self.q_table[self.prev_position][self.prev_action]))
 
 
@@ -56,6 +65,7 @@ class QAgent(Agent):
       self.prev_action = max_q_action
     
     self.prev_score = state.getScore()
+    self.cumulativeActions += 1
     
     return self.prev_action
 
@@ -66,16 +76,40 @@ class QAgent(Agent):
 
     self.prev_position = None
     self.prev_action = None
-    self.prev_score = None
-    self.episodes += 1
+    self.scores.append(state.getScore())
+    self.prev_score = 0
+    self.rewards.append(self.cumulativeReward)
+    self.cumulativeReward = 0
+    self.num_actions.append(self.cumulativeActions)
+    self.cumulativeActions = 0
 
-    if self.episodes == self.num_training:
+    self.episodes += 1
+    if self.episodes == self.num_games - 10:
       # stops learning and starts exploitation
       self.learning_rate = 0.3
       self.exploration_rate = 0.3
 
+      results = dict()
+      results['rewards'] = self.rewards
+      results['actions'] = self.num_actions
+      results['scores'] = self.scores
+      print results
+
+      self.rewards = []
+      self.num_actions = []
+      self.scores = []
+
+    # exploitation mode - last 10 games
+    elif self.episodes == self.num_games:
+      results = dict()
+      results['rewards'] = self.rewards
+      results['actions'] = self.num_actions
+      results['scores'] = self.scores
+      print results
+
     elif self.episodes % 1000 == 0:
-      self.learning_rate -= 0.1
-      self.exploration_rate -= 0.1
-      self.discount_factor -= 0.1
+      if self.learning_rate > 0.3:
+        self.learning_rate -= 0.1
+      if self.exploration_rate > 0.3:
+        self.exploration_rate -= 0.1
 
