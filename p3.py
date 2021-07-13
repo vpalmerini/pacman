@@ -221,15 +221,6 @@ def main(argv):
       worst = sorted_individuals[-1]
       
 
-#       score_variance = best.score / worst.score
-#       if score_variance > 0:
-#         if best.score < 0:
-#           if score_variance >= 0.9:
-#             break
-#         else:
-#           if score_variance <= 1.1:
-#             break
-
       # get numBest bests
       bestCut = int(args['numBest'] * len(sorted_individuals))
       worstCut = int(args['numWorst'] * len(sorted_individuals))
