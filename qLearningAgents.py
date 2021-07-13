@@ -21,9 +21,6 @@ class QAgent(Agent):
     self.scores = []
   
   def bellman_equation(self, state, final = False):
-    capsules = state.getCapsules()
-    food = state.getFood()
-    ghosts = state.getGhostPositions()
     position = state.getPacmanPosition()
 
     max_q_value = 0

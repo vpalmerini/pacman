@@ -13,13 +13,17 @@ class GeneticAgent(Agent):
     capsules = state.getCapsules()
     food = state.getFood()
     ghosts = state.getGhostPositions()
+    ghost_info = state.getGhostStates()
 
     if (x, y) in capsules:
       return 50
     elif state.hasFood(x,y):
       return 10
     elif (x, y) in ghosts:
-      return -10
+      if ghost_info[ghosts.index((x,y))].scaredTimer > 0:
+        return 100
+      else:
+        return -10
     else:
       return 0
 
@@ -30,13 +34,37 @@ class GeneticAgent(Agent):
 
     for action in legalActions:
       if action == Directions.NORTH:
-        scores[action] = self.evaluateDirection(state, x, y+1)
+        p1 = self.evaluateDirection(state, x+1, y+1)
+        p2 = self.evaluateDirection(state, x, y+1)
+        p3 = self.evaluateDirection(state, x-1, y+1)
+        if p1 == -10 or p2 == -10 or p3 == -10:
+          scores[action] = -10
+        else:
+          scores[action] = p2
       elif action == Directions.EAST:
-        scores[action] = self.evaluateDirection(state, x+1, y)
+        p1 = self.evaluateDirection(state, x+1, y+1)
+        p2 = self.evaluateDirection(state, x+1, y)
+        p3 = self.evaluateDirection(state, x+1, y-1)
+        if p1 == -10 or p2 == -10 or p3 == -10:
+          scores[action] = -10
+        else:
+          scores[action] = p2
       elif action == Directions.SOUTH:
-        scores[action] = self.evaluateDirection(state, x, y-1)
+        p1 = self.evaluateDirection(state, x+1, y-1)
+        p2 = self.evaluateDirection(state, x, y-1)
+        p3 = self.evaluateDirection(state, x-1, y-1)
+        if p1 == -10 or p2 == -10 or p3 == -10:
+          scores[action] = -10
+        else:
+          scores[action] = p2
       elif action == Directions.WEST:
-        scores[action] = self.evaluateDirection(state, x-1, y)
+        p1 = self.evaluateDirection(state, x-1, y+1)
+        p2 = self.evaluateDirection(state, x-1, y)
+        p3 = self.evaluateDirection(state, x-1, y-1)
+        if p1 == -10 or p2 == -10 or p3 == -10:
+          scores[action] = -10
+        else:
+          scores[action] = p2
 
     best_action = max(scores.items(), key=lambda x: x[1])
 
