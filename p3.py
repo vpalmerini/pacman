@@ -242,6 +242,7 @@ def main(argv):
       for ind in best_individuals:
         offsprings.append(storeIndividual(Individual(actions=ind.actions), gen, args['layout']))
 
+
       # reproduction
       while len(available_to_reproduct) > 1:
         index1 = random.randint(0, len(available_to_reproduct) - 1)

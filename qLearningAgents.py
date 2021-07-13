@@ -19,7 +19,6 @@ class QAgent(Agent):
     self.cumulativeActions = 0
     self.num_actions = []
     self.scores = []
-    
   
   def bellman_equation(self, state, final = False):
     position = state.getPacmanPosition()
