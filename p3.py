@@ -57,14 +57,15 @@ class Generation:
         'Avg Fitness':sum(ind.fitness for ind in self.individuals) / len(self.individuals),
         'Generation':self.id}, 
         ignore_index=True)
-    print 'GENERATION {gen}'.format(gen=self.id)
-    print 'Best Score: {best_score:.2f}'.format(best_score=self.best_score().score)
-    print 'Worst Score: {worst_score:.2f}'.format(worst_score=self.worst_score().score)
-    print 'Avg Score: {avg_score:.2f}'.format(avg_score=sum(ind.score for ind in self.individuals) / len(self.individuals))
-    print 'Wins Percentage: {wins_percentage:.2f}'.format(wins_percentage=self.win_percentage())
-    print 'Best Fitness: {best_fitness:.2f}'.format(best_fitness=self.best_fitness().fitness)
-    print 'Worst Fitness: {worst_fitness:.2f}'.format(worst_fitness=self.worst_fitness().fitness)
-    print 'Avg Fitness: {avg_fitness:.2f}'.format(avg_fitness=sum(ind.fitness for ind in self.individuals) / len(self.individuals))
+#     Debug
+#     print 'GENERATION {gen}'.format(gen=self.id)
+#     print 'Best Score: {best_score:.2f}'.format(best_score=self.best_score().score)
+#     print 'Worst Score: {worst_score:.2f}'.format(worst_score=self.worst_score().score)
+#     print 'Avg Score: {avg_score:.2f}'.format(avg_score=sum(ind.score for ind in self.individuals) / len(self.individuals))
+#     print 'Wins Percentage: {wins_percentage:.2f}'.format(wins_percentage=self.win_percentage())
+#     print 'Best Fitness: {best_fitness:.2f}'.format(best_fitness=self.best_fitness().fitness)
+#     print 'Worst Fitness: {worst_fitness:.2f}'.format(worst_fitness=self.worst_fitness().fitness)
+#     print 'Avg Fitness: {avg_fitness:.2f}'.format(avg_fitness=sum(ind.fitness for ind in self.individuals) / len(self.individuals))
     return df
 
 
@@ -159,7 +160,7 @@ def reproduction(parent_A, parent_B, layout, cut = 0.5):
   parent_A.actions = sibling_A
   parent_B.actions = sibling_B
 
-
+    
 def main(argv):
   usageStr = """"""
   parser = OptionParser(usageStr)
@@ -174,6 +175,7 @@ def main(argv):
   parser.add_option('--numBest', type='float', default=0.1)
   parser.add_option('--numWorst', type='float', default=0.1)
   parser.add_option('--reproductionCut', type='float', default=0.5)
+  parser.add_option('--deterministic', default=True)
 
   options, junk = parser.parse_args(argv)
 
@@ -190,9 +192,11 @@ def main(argv):
 
 
   individuals = []
-  print('Number of individuals: ' + str(args['numPop']))
+  # Debug
+  # print('Number of individuals: ' + str(args['numPop']))
   for gen in range(args['numGen']):
-    print 'Generation {gen}'.format(gen=gen)
+    # Debug
+    # print 'Generation {gen}'.format(gen=gen)
     
     # first generation uses RandomAgent
     default_args = ['-p', 'RandomAgent', '-q', '--layout', args['layout'], '--numGames', str(args['numGames'])]
@@ -252,7 +256,10 @@ def main(argv):
 
       # play generation
       for offspring in offsprings:
-        offspring_args = ['-q', '-f', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+        if options.deterministic:
+          offspring_args = ['-q', '-f', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+        else:
+          offspring_args = ['-q', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=offspring.move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
         games = play(offspring_args)
         performance = evaluateGames(games, args['fitness'])
         offspring.score = performance['score']
@@ -266,17 +273,18 @@ def main(argv):
 
     # generation performance
     generation = Generation(gen, individuals)
-    print('Generation best score id: ' + str(generation.best_score().id))
-    
-    #play the best individual
-    best_args = ['-f', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=generation.best_score().move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
-    play(best_args)
-    
+    # Debug
+    # print('Generation best score id: ' + str(generation.best_score().id))
     df = generation.performance(df)
 
-  fig = px.line(df, x='Generation', y=['Best_score', 'Worst_score', 'Average_score', 'Best Fitness', 'Worst Fitness', 'Avg Fitness'], title='Pacman genetic learning',
-                  labels=dict(value = 'Score'), template='plotly_white')
-  fig.show()
+  #play the best individual
+  if options.deterministic:
+    best_args = ['-f', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=generation.best_score().move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+  else:
+    best_args = ['-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=generation.best_score().move_history), '--layout', args['layout'], '--numGames', str(args['numGames'])]
+ 
+  play(best_args)
 
+  df.to_pickle('data.pkl')
 
 main(sys.argv[1:])
