@@ -175,8 +175,8 @@ def main(argv):
   parser.add_option('--numBest', type='float', default=0.1)
   parser.add_option('--numWorst', type='float', default=0.1)
   parser.add_option('--reproductionCut', type='float', default=0.5)
-  parser.add_option('--deterministic', type='bool', default=True)
-  parser.add_option('--runBest', type='bool', default=False)
+  parser.add_option('--deterministic', default=True)
+  parser.add_option('--runBest', default=False)
 
   options, junk = parser.parse_args(argv)
 
@@ -293,7 +293,8 @@ def main(argv):
     best_ind = generation.best_score()
     best_ind_args = ['-q', '-p', 'GeneticAgent', '--agentArgs', 'moveHistory={move_history}'.format(move_history=best_ind.move_history), '--layout', args['layout'], '--numGames', '10']
     best_ind_games = play(best_ind_args)
-    performance = evaluateGames(best_ind_games, args['fitness'])
-    print performance
-
+    scores = [game.state.getScore() for game in best_ind_games]
+    df = pd.DataFrame({'Score':scores})
+    df.to_pickle('data.pkl')
+    
 main(sys.argv[1:])
